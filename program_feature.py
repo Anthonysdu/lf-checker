@@ -12,7 +12,7 @@ from anytree.exporter import DotExporter
 class represents program features.
 """
 class Feature():
- def __init__(self, thread_create_num, max_thread_create_nested, thread_join_num, max_thread_join_nested, min_val_access_num, min_val_access_times, min_func_call_num, min_func_call_times):
+ def __init__(self, thread_create_num, max_thread_create_nested, thread_join_num, max_thread_join_nested, min_val_access_num, min_val_access_times, min_func_call_num, min_func_call_times, operator_num_inif):
   self.thread_create_num = thread_create_num
   self.max_thread_create_nested = max_thread_create_nested
   self.thread_join_num = thread_join_num
@@ -21,14 +21,14 @@ class Feature():
   self.min_val_access_times = min_val_access_times
   self.min_func_call_num = min_func_call_num
   self.min_func_call_times = min_func_call_times
-
+  self.operator_num_inif = operator_num_inif
   self.dict_func_prev = {} #key: pre_address(pre_declare) value: curr_address
   self.dict_val_access = {}
   self.dict_func_call = {}
   self.global_decl_list = []
   self.pthread_create_stmt_list = []
   self.pthread_join_stmt_list = []
- 
+  
      
 """
 class represents a node in the ast-dump.
@@ -252,14 +252,39 @@ def global_mem_access(feature, root):
           #print(ob.func_call.func_list[0].address)
           #print(ob.func_call.func_list[0].level)
 
+
+def operators_in_if(feature, root):
+ op_num = 0
+ for pre, fill, node in RenderTree(root):
+  if node.name == '-FunctionDecl' and 'main' in node.suffix:
+   for index, children in enumerate(LevelOrderGroupIter(node)):
+    for node1 in children:
+     if node1.name == '-IfStmt':
+      for index1, children1 in enumerate(LevelOrderGroupIter(node1)):
+       for node2 in children1:
+        if node2.name == '-BinaryOperator':
+         #print(str(node2.suffix))
+         if node2.suffix[3] == '\'>=\'' or node2.suffix[3] == '\'<=\'':
+          op_num += 2
+         else:
+          op_num += 1
+ #print(op_num)
+ feature.operator_num_inif = op_num
+   #if index == 2 and node.name == "-FunctionDecl" or node.name == "-VarDecl":
+    #feature.global_decl_list.append(node.address)
+     #print(node1.name)
+  #print(node.suffix)
+ 
+ 
 def main(file):
- features = Feature(0,0,0,0,0,0,0,0)
+ features = Feature(0,0,0,0,0,0,0,0,0)
  out = get_ast_dump(file)
  root = bulid_tree(out, features)
  construct_global_decl(root, features)   
  func_address_match(features, root)
  global_mem_access(features, root)
  genreate_features(features)
+ operators_in_if(features, root)
  #print(features.thread_create_num)
  #print(features.max_thread_create_nested)
  #print(features.thread_join_num)
@@ -268,9 +293,9 @@ def main(file):
  #print(features.min_val_access_times)
  #print(features.min_func_call_num)
  #print(features.min_func_call_times)
+ #print(features.operator_num_inif)
  return features
    
 if __name__ == "__main__":
  res = main(sys.argv[1])
  exit(0)
- 
